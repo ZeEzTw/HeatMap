@@ -1,0 +1,12 @@
+{
+  "device_id": "sensor_lab_3",
+  "wi-fi name": "hotspot",
+  "wi-fi password": "password123",
+  "influxdb": {
+    "url": "https://eu-central-1-1.aws.cloud2.influxdata.com",
+    "token": "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDPi8hk-gJn_dksyh2eE11eug==",
+    "org": "Eli-np",
+    "bucket": "temperature and humidity data"
+  },
+  "timeBetweenReadings": 10
+}
