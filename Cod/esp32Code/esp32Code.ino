@@ -1,4 +1,3 @@
-// main.ino
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Wire.h>
@@ -8,10 +7,12 @@
 #include "Error.h"
 #include "readConfig.h"
 #include "time.h"
+#include "MQTT.h"
 
 Adafruit_AHTX0 aht;
 
-// Config din JSON
+ConfigManager config;
+
 String deviceID;
 String ssid;
 String password;
@@ -19,18 +20,17 @@ String influx_url;
 String influx_token;
 String influx_org;
 String influx_bucket;
+String mqtt_broker_ip;
+int mqtt_broker_port = 1883;
 int delaySeconds = 10;
 
-// NTP config
-const char* ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 0;
-const int daylightOffset_sec = 0;
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
 
 void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
-  readConfig();
-
+  config.begin();
   WiFi.begin(ssid.c_str(), password.c_str());
   Serial.print("🔌 Conectare la WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -39,7 +39,6 @@ void setup() {
   }
   Serial.println("\n✅ WiFi conectat!");
 
-  // Setup NTP
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   Serial.println("⏰ Aștept sincronizare timp NTP...");
   struct tm timeinfo;
@@ -56,9 +55,15 @@ void setup() {
     while (true) delay(10);
   }
   Serial.println("✅ Senzor AHT21 OK");
+
+  //mqttClient.setServer(mqtt_broker_ip.c_str(), mqtt_broker_port);
+  //mqttClient.setCallback(callback);
 }
 
 void loop() {
+  //if (!mqttClient.connected()) reconnectMQTT();
+  //mqttClient.loop();
+
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
     Serial.println("⚠️ Nu am timp, încerc din nou...");
@@ -102,8 +107,10 @@ void loop() {
     http.addHeader("Authorization", "Token " + influx_token);
     http.addHeader("Content-Type", "text/plain");
 
-    String body = "temperature,device_id=" + deviceID + " value=" + String(temp, 2) + "\n";
-    body += "humidity,device_id=" + deviceID + " value=" + String(hum, 2);
+    String body = "";
+    body += "temperature,device_id=" + deviceID + " value=" + String(temp, 2) + "\n";
+    body += "humidity,device_id=" + deviceID + " value=" + String(hum, 2) + "\n";
+    body += "esp_ip,device_id=" + deviceID + " value=\"" + WiFi.localIP().toString() + "\"";
 
     Serial.println("📤 Trimit către InfluxDB:");
     Serial.println(body);
@@ -113,6 +120,23 @@ void loop() {
     Serial.println(status);
     http.end();
   }
+
+  if (blinking) {
+    static unsigned long blinkEndTime = 0;
+    if (blinkEndTime == 0) {
+      blinkEndTime = millis() + 5000;  // Blink timp de 5 secunde
+    }
+    blinkLED();
+    if (millis() > blinkEndTime) {
+      blinking = false;
+      digitalWrite(LED_PIN, LOW);
+      blinkEndTime = 0;
+      Serial.println("🔆 Blink oprit");
+    }
+  }
+
+  String payload = "{\"temp\": " + String(temp, 2) + ", \"hum\": " + String(hum, 2) + "}";
+  //mqttClient.publish(("sensors/" + deviceID).c_str(), payload.c_str());
 
   delay(200);
 }
