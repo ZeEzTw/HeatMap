@@ -11,10 +11,10 @@ const int SDA1 = 21;
 const int SCL1 = 22;
 const int SDA2 = 26;
 const int SCL2 = 27;
-const int SDA3 = 25;
-const int SCL3 = 33;
-const int SDA4 = 15;
-const int SCL4 = 2;
+const int SDA3 = 33;
+const int SCL3 = 25;
+const int SDA4 = 19;
+const int SCL4 = 18;
 
 TwoWire I2C = TwoWire(0); // We'll reuse this I2C instance for all sensors
 
