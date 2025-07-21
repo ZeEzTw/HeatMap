@@ -155,7 +155,7 @@ void loop() {
     localtime_r(&now, &timeinfo);
   }
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 3; i++) {
     float tempSum = 0.0;
     float humSum = 0.0;
     int validCount = 0;
@@ -209,7 +209,7 @@ void loop() {
       localStorage.saveData(data);
       Serial.println("Date salvate local!");
     }
-    delay(100);  // slight delay between sensors
+    delay(500);  // slight delay between sensors
   }
   // Try to send any locally saved data if WiFi is back
   if (WiFi.status() == WL_CONNECTED) {
@@ -231,5 +231,5 @@ void loop() {
     }
     localStorage.clearData();
   }
-  delay(1000); // wait before next full cycle
+  delay(500); // wait before next full cycle
 }
