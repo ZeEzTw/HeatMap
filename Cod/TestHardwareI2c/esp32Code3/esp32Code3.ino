@@ -21,8 +21,8 @@ String bucket = "temperature%20and%20humidity%20data";
 String token = "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDPi8hk-gJn_dksyh2eE11eug==";
 
 // Pins for 4 sensors
-int sdaPin[4] = {21, 26, 33, 19};
-int sclPin[4] = {22, 27, 25, 18};
+int sdaPin[4] = {18, 4, 17};
+int sclPin[4] = {19, 16, 5};
 String sensorIDs[4] = {"001", "002", "003", "004"};
 
 TwoWire I2C = TwoWire(0);
@@ -49,7 +49,7 @@ void loadSettings() {
   bucket = prefs.getString("bucket", bucket);
   token = prefs.getString("token", token);
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 3; i++) {
     String key = "sensorID" + String(i);
     sensorIDs[i] = prefs.getString(key.c_str(), sensorIDs[i]);
   }
@@ -70,7 +70,7 @@ void saveSettings() {
   prefs.putString("bucket", bucket);
   prefs.putString("token", token);
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 3; i++) {
     String key = "sensorID" + String(i);
     prefs.putString(key.c_str(), sensorIDs[i]);
   }
@@ -118,7 +118,7 @@ SensorData readSensor(int sda, int scl) {
   sensors_event_t humidity, temperature;
 
   I2C.begin(sda, scl);
-  delay(50);
+  delayMicroseconds(100); // minimal delay for I2C stability
 
   if (aht.begin(&I2C)) {
     aht.getEvent(&humidity, &temperature);
@@ -145,20 +145,12 @@ void reconnectWiFi() {
 }
 
 void loop() {
-  // Wait until the current second matches syncSecond
-  time_t now = time(nullptr);
-  struct tm timeinfo;
-  localtime_r(&now, &timeinfo);
-  while (timeinfo.tm_sec != syncSecond) {
-    delay(100);
-    now = time(nullptr);
-    localtime_r(&now, &timeinfo);
-  }
-
+  // Take 5 readings from each sensor as fast as possible
+  float avgTemp[3] = {0}, avgHum[3] = {0};
+  int validCount[3] = {0};
   for (int i = 0; i < 3; i++) {
-    float tempSum = 0.0;
-    float humSum = 0.0;
-    int validCount = 0;
+    float tempSum = 0.0, humSum = 0.0;
+    int count = 0;
     for (int j = 0; j < numSamples; j++) {
       SensorData data = readSensor(sdaPin[i], sclPin[i]);
       float temp = data.temperature;
@@ -166,70 +158,91 @@ void loop() {
       if (!isnan(temp) && !isnan(hum)) {
         tempSum += temp;
         humSum += hum;
-        validCount++;
+        count++;
       }
-      delay(550); // fast collection, ~500-600 ms
+      if (j < numSamples - 1) delayMicroseconds(100); // minimal delay
     }
-    if (validCount == 0) {
+    validCount[i] = count;
+    if (count > 0) {
+      avgTemp[i] = tempSum / count;
+      avgHum[i] = humSum / count;
+    } else {
+      avgTemp[i] = NAN;
+      avgHum[i] = NAN;
       blinkError(1);
-      Serial.println("Date senzor invalide.");
-      continue;
+      Serial.print("Date senzor invalide pentru senzorul ");
+      Serial.println(i);
     }
-    float avgTemp = tempSum / validCount;
-    float avgHum = humSum / validCount;
-    Serial.print("Sensor "); Serial.print(i);
-    Serial.print(" | Temp: "); Serial.print(avgTemp); Serial.print(" °C | ");
-    Serial.print("Umiditate: "); Serial.print(avgHum); Serial.println(" %");
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      String url = influx_host + "/api/v2/write?org=" + org + "&bucket=" + bucket + "&precision=s";
-      http.begin(url);
-      http.addHeader("Authorization", "Token " + token);
-      http.addHeader("Content-Type", "text/plain");
-      String body = "";
-      body += "temperature,device_id=" + sensorIDs[i] + " value=" + String(avgTemp, 2) + "\n";
-      body += "humidity,device_id=" + sensorIDs[i] + " value=" + String(avgHum, 2);
-      Serial.println("Trimis catre InfluxDB:");
-      Serial.println(body);
-      int status = http.POST(body);
-      Serial.print("Status POST: ");
-      Serial.println(status);
-      http.end();
-    }
-    else
-    {
-      blinkError(3);
-      reconnectWiFi();
-      // Save data locally
-      LocalData data;
-      data.deviceID = sensorIDs[i];
-      data.temperature = avgTemp;
-      data.humidity = avgHum;
-      data.timestamp = time(nullptr);
-      localStorage.saveData(data);
-      Serial.println("Date salvate local!");
-    }
-    delay(500);  // slight delay between sensors
+    // Minimal delay between sensors
+    if (i < 2) delayMicroseconds(100);
   }
+
+  // Build a single body for all sensors
+  String body = "";
+  for (int i = 0; i < 3; i++) {
+    if (!isnan(avgTemp[i]) && !isnan(avgHum[i])) {
+      body += "temperature,device_id=" + sensorIDs[i] + " value=" + String(avgTemp[i], 2) + "\n";
+      body += "humidity,device_id=" + sensorIDs[i] + " value=" + String(avgHum[i], 2) + "\n";
+    }
+  }
+  if (body.length() > 0) {
+    // Remove last newline
+    if (body.endsWith("\n")) body.remove(body.length() - 1);
+  }
+
+  if (WiFi.status() == WL_CONNECTED && body.length() > 0) {
+    HTTPClient http;
+    String url = influx_host + "/api/v2/write?org=" + org + "&bucket=" + bucket + "&precision=s";
+    http.begin(url);
+    http.addHeader("Authorization", "Token " + token);
+    http.addHeader("Content-Type", "text/plain");
+    Serial.println("Trimis catre InfluxDB:");
+    Serial.println(body);
+    int status = http.POST(body);
+    Serial.print("Status POST: ");
+    Serial.println(status);
+    http.end();
+  } else if (body.length() > 0) {
+    // Save all data locally if WiFi is not connected
+    blinkError(3);
+    reconnectWiFi();
+    time_t now = time(nullptr);
+    for (int i = 0; i < 3; i++) {
+      if (!isnan(avgTemp[i]) && !isnan(avgHum[i])) {
+        LocalData data;
+        data.deviceID = sensorIDs[i];
+        data.temperature = avgTemp[i];
+        data.humidity = avgHum[i];
+        data.timestamp = now;
+        localStorage.saveData(data);
+      }
+    }
+    Serial.println("Date salvate local!");
+  }
+
   // Try to send any locally saved data if WiFi is back
   if (WiFi.status() == WL_CONNECTED) {
     std::vector<LocalData> pending = localStorage.getAllData();
-    for (auto& data : pending) {
+    if (!pending.empty()) {
+      String localBody = "";
+      for (auto& data : pending) {
+        localBody += "temperature,device_id=" + data.deviceID + " value=" + String(data.temperature, 2) + "\n";
+        localBody += "humidity,device_id=" + data.deviceID + " value=" + String(data.humidity, 2) + "\n";
+      }
+      if (localBody.endsWith("\n")) localBody.remove(localBody.length() - 1);
       HTTPClient http;
       String url = influx_host + "/api/v2/write?org=" + org + "&bucket=" + bucket + "&precision=s";
       http.begin(url);
       http.addHeader("Authorization", "Token " + token);
       http.addHeader("Content-Type", "text/plain");
-      String body = "";
-      body += "temperature,device_id=" + data.deviceID + " value=" + String(data.temperature, 2) + "\n";
-      body += "humidity,device_id=" + data.deviceID + " value=" + String(data.humidity, 2);
-      int status = http.POST(body);
+      int status = http.POST(localBody);
       http.end();
       if (status == 204) {
         Serial.println("Date locale trimise catre InfluxDB!");
+        localStorage.clearData();
       }
     }
-    localStorage.clearData();
   }
-  delay(500); // wait before next full cycle
+  // Minimal delay before next cycle
+  delayMicroseconds(100);
 }
