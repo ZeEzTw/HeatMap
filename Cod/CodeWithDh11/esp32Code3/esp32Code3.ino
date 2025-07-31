@@ -22,7 +22,7 @@ String bucket = "temperature%20and%20humidity%20data";
 String token = "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDPi8hk-gJn_dksyh2eE11eug==";
 
 // Number of I2C sensors to use (configurable)
-int numI2CSensors = 2; // Change this to use 1, 2, 3, or 4 sensors
+int numI2CSensors = 3; // Change this to use 1, 2, 3, or 4 sensors
 
 // Pins for 4 sensors (only first numI2CSensors will be used)
 int sdaPin[4] = {4, 17, 18, 21};
