@@ -6,14 +6,13 @@
 #include <time.h>
 #include "Error.h"
 #include "LocalStorage.h"
-#include <DHT.h>
 
 Preferences prefs;
 LocalStorage localStorage;
 
 // Variabile configurabile, folosește String în loc de char* pentru a putea lucra ușor cu Preferences
-String ssid = "hotspot";
-String password = "123456789";
+String ssid = "Guests";
+String password = "guestELI18";
 
 // InfluxDB Cloud config
 String influx_host = "https://eu-central-1-1.aws.cloud2.influxdata.com";
@@ -22,17 +21,14 @@ String bucket = "temperature%20and%20humidity%20data";
 String token = "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDPi8hk-gJn_dksyh2eE11eug==";
 
 // Number of I2C sensors to use (configurable)
-int numI2CSensors = 3; // Change this to use 1, 2, 3, or 4 sensors
+int numI2CSensors = 4; // Change this to use 1, 2, 3, or 4 sensors
 
 // Pins for 4 sensors (only first numI2CSensors will be used)
-int sdaPin[4] = {4, 17, 18, 21};
-int sclPin[4] = {16, 5, 19, 22};
+int sdaPin[4] = {16, 5, 26, 14};
+int sclPin[4] = {4, 17, 25, 27};
 
-#define DHTPIN 15
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
 
-String sensorIDs[5] = {"001", "002", "003", "004", "005"}; // 005 = DHT11
+String sensorIDs[5] = {"001", "002", "003", "004"};
 
 TwoWire I2C = TwoWire(0);
 
@@ -112,8 +108,6 @@ void setup() {
   Serial.println("\nWiFi conectat!");
   Serial.print("Folosesc ");
   Serial.print(numI2CSensors);
-  Serial.println(" senzori I2C + 1 DHT11");
-
   // SNTP setup
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   Serial.print("Astept sincronizare SNTP...");
@@ -128,8 +122,6 @@ void setup() {
   localtime_r(&now, &timeinfo);
   Serial.print("Ora curenta: ");
   Serial.println(asctime(&timeinfo));
-
-  dht.begin();
 }
 
 SensorData readSensor(int sda, int scl) {
@@ -194,17 +186,6 @@ void loop() {
     }
     if (i < numI2CSensors - 1) delay(sensorDelayMs); // delay between sensors
   }
-  // Read DHT11 after all AHTs
-  delay(sensorDelayMs); // extra delay for DHT stability
-  float dht_h = dht.readHumidity();
-  float dht_t = dht.readTemperature();
-  if (!isnan(dht_t) && !isnan(dht_h)) {
-    temp[4] = dht_t;
-    hum[4] = dht_h;
-  } else {
-    Serial.println("Date senzor invalide pentru DHT11 (005)");
-  }
-
   // Build a single body for all sensors
   String body = "";
   // Only process the active I2C sensors
@@ -213,11 +194,6 @@ void loop() {
       body += "temperature,device_id=" + sensorIDs[i] + " value=" + String(temp[i], 2) + "\n";
       body += "humidity,device_id=" + sensorIDs[i] + " value=" + String(hum[i], 2) + "\n";
     }
-  }
-  // Add DHT11 data (sensor index 4)
-  if (!isnan(temp[4]) && !isnan(hum[4])) {
-    body += "temperature,device_id=" + sensorIDs[4] + " value=" + String(temp[4], 2) + "\n";
-    body += "humidity,device_id=" + sensorIDs[4] + " value=" + String(hum[4], 2) + "\n";
   }
   if (body.length() > 0) {
     // Remove last newline
@@ -252,18 +228,6 @@ void loop() {
         localStorage.saveData(data);
       }
     }
-    // Save DHT11 data
-    if (!isnan(temp[4]) && !isnan(hum[4])) {
-      LocalData data;
-      data.deviceID = sensorIDs[4];
-      data.temperature = temp[4];
-      data.humidity = hum[4];
-      data.timestamp = now;
-      localStorage.saveData(data);
-    }
-    Serial.println("Date salvate local!");
-  }
-
   // Try to send any locally saved data if WiFi is back
   if (WiFi.status() == WL_CONNECTED) {
     std::vector<LocalData> pending = localStorage.getAllData();

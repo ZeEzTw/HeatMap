@@ -13,9 +13,8 @@ LocalStorage localStorage;
 
 // Variabile configurabile, folosește String în loc de char* pentru a putea lucra ușor cu Preferences
 String ssid = "hotspot";
-String password = "123456789";
 
-// InfluxDB Cloud config
+Preferences prefs;
 String influx_host = "https://eu-central-1-1.aws.cloud2.influxdata.com";
 String org = "Eli-np";
 String bucket = "temperature%20and%20humidity%20data";
@@ -25,8 +24,8 @@ String token = "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDP
 int numI2CSensors = 2; // Change this to use 1, 2, 3, or 4 sensors
 
 // Pins for 4 sensors (only first numI2CSensors will be used)
-int sdaPin[4] = {4, 17, 18, 21};
-int sclPin[4] = {16, 5, 19, 22};
+int sdaPin[4] = {17, 5, 26, 14};
+int sclPin[4] = {16, 18, 25, 27};
 
 #define DHTPIN 15
 #define DHTTYPE DHT11
