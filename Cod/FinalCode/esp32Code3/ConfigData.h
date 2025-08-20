@@ -6,7 +6,7 @@
 // All configuration data in one place for easy editing
 
 // WiFi
-const String WIFI_SSID = "GuestE";
+const String WIFI_SSID = "Guests";
 const String WIFI_PASSWORD = "guestELI18";
 
 // InfluxDB

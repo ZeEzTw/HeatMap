@@ -8,6 +8,7 @@
 #include "ConfigData.h"
 #include <esp_system.h>
 #include <esp_task_wdt.h>
+#include <WiFiClientSecure.h>
 
 struct SensorData {
   float temperature;
@@ -97,6 +98,15 @@ void logSystemStatus(unsigned long i2cErrorCount) {
   Serial.print(esp_reset_reason());
   Serial.print(", i2cErrorCount: ");
   Serial.println(i2cErrorCount);
+
+  // Log system status, including i2cErrorCount, to InfluxDB
+  String debugBody = "debug,device_id=ESP32 reset_reason=" + String(esp_reset_reason()) + ",wifi_rssi=" + String(WiFi.RSSI()) + ",i2c_error_count=" + String(i2cErrorCount) + ",reset_status=1";
+  HTTPClient debugHttp;
+  debugHttp.begin(influx_host + "/api/v2/write?org=" + org + "&bucket=" + bucket + "&precision=s");
+  debugHttp.addHeader("Authorization", "Token " + token);
+  debugHttp.addHeader("Content-Type", "text/plain");
+  debugHttp.POST(debugBody);
+  debugHttp.end();
 }
 
 void setup() {
@@ -194,9 +204,8 @@ void reconnectWiFi() {
   }
 }
 
-
 void writeToInfluxDB(const String& body) {
-  static int failedAttempts = 0; // Track consecutive failed attempts
+  static int influxFailedAttempts = 0; // Track consecutive failed attempts for InfluxDB
 
   if (WiFi.status() == WL_CONNECTED && body.length() > 0) {
     HTTPClient http;
@@ -211,9 +220,9 @@ void writeToInfluxDB(const String& body) {
     Serial.println(status);
 
     if (status == 204) { // Success
-      failedAttempts = 0; // Reset failed attempts counter
+      influxFailedAttempts = 0; // Reset failed attempts counter for InfluxDB
     } else {
-      failedAttempts++;
+      influxFailedAttempts++;
       Serial.println("Failed to send data to InfluxDB");
     }
 
@@ -221,19 +230,29 @@ void writeToInfluxDB(const String& body) {
   } else if (body.length() > 0) {
     blinkError(3);
     reconnectWiFi();
-    failedAttempts++;
+    influxFailedAttempts++;
   }
 
-  // Reset the board after 5 consecutive failed attempts
-  if (failedAttempts >= 5) {
-    Serial.println("5 consecutive failed attempts to send data. Restarting ESP...");
+  // Reset the board after 5 consecutive failed attempts for InfluxDB
+  if (influxFailedAttempts >= 5) {
+    Serial.println("5 consecutive failed attempts to send data to InfluxDB. Restarting ESP...");
     restartESP();
   }
+
+  // Log debug information to InfluxDB
+  String debugBody = "debug,device_id=ESP32 influx_error_count=" + String(influxFailedAttempts) + ",wifi_rssi=" + String(WiFi.RSSI());
+  HTTPClient debugHttp;
+  debugHttp.begin(influx_host + "/api/v2/write?org=" + org + "&bucket=" + bucket + "&precision=s");
+  debugHttp.addHeader("Authorization", "Token " + token);
+  debugHttp.addHeader("Content-Type", "text/plain");
+  debugHttp.POST(debugBody);
+  debugHttp.end();
 }
 
 void loop() {
   static unsigned long i2cErrorCount = 0;
   static unsigned long lastLog = 0;
+  static int sensorFailedAttempts = 0; // Track consecutive failed attempts for sensors
 
   // Reset the watchdog timer at the start of the loop
   esp_task_wdt_reset();
@@ -268,17 +287,17 @@ void loop() {
   // Reset the watchdog timer after sensor readings
   esp_task_wdt_reset();
 
-  // If all sensors failed for 3 consecutive cycles, restart ESP
-  static int allFailCount = 0;
+  // If all sensors failed for 3 consecutive cycles, increment sensorFailedAttempts
   if (failedSensors == numI2CSensors) {
-    allFailCount++;
-    if (allFailCount >= 3) {
+    sensorFailedAttempts++;
+    if (sensorFailedAttempts >= 3) {
       Serial.println("All sensors failed 3 times, restarting ESP...");
       restartESP();
     }
   } else {
-    allFailCount = 0;
+    sensorFailedAttempts = 0;
   }
+
   // Build a single body for all sensors
   String body = "";
   for (int i = 0; i < numI2CSensors; i++) {
