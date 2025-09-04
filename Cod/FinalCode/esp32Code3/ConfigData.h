@@ -6,8 +6,8 @@
 // All configuration data in one place for easy editing
 
 // WiFi
-const String WIFI_SSID = "Guests";
-const String WIFI_PASSWORD = "guestELI18";
+const String WIFI_SSID = "Home";
+const String WIFI_PASSWORD = "andh!@#45";
 
 // InfluxDB
 const String INFLUX_HOST = "https://eu-central-1-1.aws.cloud2.influxdata.com";
@@ -16,7 +16,7 @@ const String INFLUX_BUCKET = "temperature%20and%20humidity%20data";
 const String INFLUX_TOKEN = "j60HrDCjeKlEyAc4m_GrYpFNjIpX--Jv9UX1v7qYtZxdyXfyuPwh_dqLl_bbJCDPi8hk-gJn_dksyh2eE11eug==";
 
 // Sensors
-const int NUM_I2C_SENSORS = 4;
+const int NUM_I2C_SENSORS = 3;
 const int SDA_PINS[4] = {16, 5, 26, 14};
 const int SCL_PINS[4] = {4, 17, 25, 27};
 const String SENSOR_IDS[4] = {"001", "002", "003", "004"};

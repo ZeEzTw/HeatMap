@@ -1,0 +1,62 @@
+Trimis catre InfluxDB:
+temperature,device_id=001 value=27.01
+humidity,device_id=001 value=52.63
+temperature,device_id=002 value=26.61
+humidity,device_id=002 value=100.00
+temperature,device_id=003 value=27.07
+humidity,device_id=003 value=53.30
+Status POST: 204
+Reading sensor 1 (ID: 001)
+Temp: 27.03°C, Hum: 52.60%
+Reading sensor 2 (ID: 002)
+Temp: 26.60°C, Hum: 100.00%
+Reading sensor 3 (ID: 003)
+humidity,device_id=001 value=53.81
+temperature,device_id=002 value=26.77
+humidity,device_id=002 value=100.00
+temperature,device_id=003 value=27.24
+humidity,device_id=003 value=54.73
+Status POST: 204
+Reading sensor 1 (ID: 001)
+Temp: 27.20°C, Hum: 53.84%
+
+Temp: 27.33°C, Hum: 55.39%
+Trimis catre InfluxDB:
+temperature,device_id=001 value=27.25
+humidity,device_id=001 value=54.48
+temperature,device_id=002 value=26.82
+humidity,device_id=002 value=100.00
+temperature,device_id=003 value=27.33
+humidity,device_id=003 value=55.39
+Status POST: 204
+Reading sensor 1 (ID: 001)
+Temp: 27.25°C, Hum: 54.56%
+Reading sensor 2 (ID: 002)
+Temp: 26.80°C, Hum: 100.00%
+Reading sensor 3 (ID: 003)
+
+
+48:45.440 -> humidity,device_id=002 value=100.00
+06:48:45.473 -> temperature,device_id=003 value=27.45
+06:48:45.473 -> humidity,device_id=003 value=57.09
+06:48:45.570 -> Status POST: -1
+06:48:45.570 -> Failed to send data to InfluxDB
+06:48:45.570 -> 5 consecutive failed attempts to send data to InfluxDB. Restarting ESP...
+06:48:45.570 -> Restart ESP...
+06:48:46.603 -> ets Jul 29 2019 12:21:46
+06:48:46.603 -> :01:08.965 -> humidity,device_id=002 value=100.00
+04:01:08.965 -> temperature,device_id=003 value=27.09
+04:01:08.965 -> humidity,device_id=003 value=53.21
+04:01:09.063 -> Status POST: -1
+04:01:09.063 -> Failed to send data to InfluxDB
+04:01:14.574 -> Reading sensor 1 (ID: 001)
+04:01:14.702 -> Temp: 27.01°C, Hum: 52.41%
+04:01:15.120 -> Reading sensor 2 (ID: 002)
+4:01:15.796 -> temperature,device_id=001 value=27.01
+04:01:15.796 -> humidity,device_id=001 value=52.41
+04:01:15.796 -> temperature,device_id=002 value=26.57
+04:01:15.796 -> humidity,device_id=002 value=100.00
+04:01:15.796 -> temperature,device_id=003 value=27.06
+04:01:15.796 -> humidity,device_id=003 value=53.22
+04:01:15.925 -> Status POST: -1
+04:00:11.953 -> [MONITOR] millis: 10083987, freeHeap: 89572, WiFi RSSI: -47, reset reason: 1, i2cErrorCount: 0
