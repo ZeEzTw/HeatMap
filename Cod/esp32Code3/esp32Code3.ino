@@ -244,7 +244,7 @@ void loop()
     
     if (sensorConsecutiveFailures >= MAX_SENSOR_FAILURES) {
       Serial.println("Too many consecutive sensor failures, restarting ESP...");
-      String failureMsg = "ESP32 - ALL SENSORS FAILED " + String(MAX_SENSOR_FAILURES) + " times consecutively!";
+      String failureMsg = "ESP32 - ALL SENSORS FAILED " + String(MAX_SENSOR_FAILURES) + " times consecutively!" + "from senzor" + i;
       sendTelegramMessage(failureMsg);
       restartESP();
     }
@@ -261,7 +261,7 @@ void loop()
   String body = "";
   for (int i = 0; i < NUM_I2C_SENSORS; i++) {
     if (!isnan(temp[i]) && !isnan(hum[i]) && 
-        temp[i] > -40 && temp[i] < 85 &&
+        temp[i] > -80 && temp[i] < 130 &&
         hum[i] >= 0 && hum[i] <= 100) {
       body += "temperature,device_id=" + SENSOR_IDS[i] + " value=" + String(temp[i], 2) + "\n";
       body += "humidity,device_id=" + SENSOR_IDS[i] + " value=" + String(hum[i], 2) + "\n";
