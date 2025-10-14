@@ -244,7 +244,7 @@ void loop()
     
     if (sensorConsecutiveFailures >= MAX_SENSOR_FAILURES) {
       Serial.println("Too many consecutive sensor failures, restarting ESP...");
-      String failureMsg = "ESP32 - ALL SENSORS FAILED " + String(MAX_SENSOR_FAILURES) + " times consecutively!" + "from senzor" + i;
+      String failureMsg = "ESP32 - ALL SENSORS FAILED " + String(MAX_SENSOR_FAILURES) + " times consecutively!";
       sendTelegramMessage(failureMsg);
       restartESP();
     }
