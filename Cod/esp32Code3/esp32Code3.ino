@@ -1,9 +1,13 @@
 #include <time.h>
 #include "Error.h"
-#include "Senzors.h"
+//#include "Senzors.h"
 #include "Telegram.h"
 #include "InfluxDB.h"
+#include "BitBangAHT21ELI.h"
 using namespace std;
+
+// Scalable array of bit-banged sensor instances. Size follows NUM_I2C_SENSORS.
+BitBangAHT21ELI* bbSensors[NUM_I2C_SENSORS] = { nullptr };
 
 
 void setup()
@@ -129,6 +133,16 @@ void setup()
     Serial.println(SCL_PINS[i]);
   }
 
+  // Instantiate bit-banged sensor objects for each configured sensor
+  for (int i = 0; i < NUM_I2C_SENSORS; i++) {
+    Serial.print("Creating BitBangAHT21ELI for SDA=");
+    Serial.print(SDA_PINS[i]);
+    Serial.print(" SCL=");
+    Serial.println(SCL_PINS[i]);
+    bbSensors[i] = new BitBangAHT21ELI(SDA_PINS[i], SCL_PINS[i]);
+    delay(50);
+  }
+
   // Send startup notification to Telegram
   if (!resetMessageSent && WiFi.status() == WL_CONNECTED) {
     Serial.println("\n--- Startup Notification ---");
@@ -188,37 +202,45 @@ void loop()
     esp_task_wdt_reset();
     
     unsigned long sensorStartTime = millis();
-    SensorData data = readSensorWithRecovery(SDA_PINS[i], SCL_PINS[i]);
-    unsigned long sensorDuration = millis() - sensorStartTime;
     
-    temp[i] = data.temperature;
-    hum[i] = data.humidity;
-    
-    // Validate sensor data
-    if (!isnan(temp[i]) && !isnan(hum[i]) && 
-        temp[i] > -80 && temp[i] < 130 &&
-        hum[i] >= 0 && hum[i] <= 100) {
+      float tVal = NAN, hVal = NAN;
+      bool readOk = false;
+      if (i < NUM_I2C_SENSORS && bbSensors[i] != nullptr) {
+        readOk = bbSensors[i]->aht_get_data(&tVal, &hVal);
+      } else {
+        Serial.println("Sensor instance not available");
+      }
+      unsigned long sensorDuration = millis() - sensorStartTime;
+
+      temp[i] = tVal;
+      hum[i] = hVal;
+
+      // Validate sensor data
+      if (readOk && !isnan(temp[i]) && !isnan(hum[i]) && 
+          temp[i] > -80 && temp[i] < 130 &&
+          hum[i] >= 0 && hum[i] <= 100) {
+
+        validSensors++;
+        Serial.print("Valid data - Temp: ");
+        Serial.print(temp[i], 2);
+        Serial.print("\u00b0C, Hum: ");
+        Serial.print(hum[i], 2);
+        Serial.print("% (");
+        Serial.print(sensorDuration);
+        Serial.println("ms)");
       
-      validSensors++;
-      Serial.print("✓ Valid data - Temp: ");
-      Serial.print(temp[i], 2);
-      Serial.print("°C, Hum: ");
-      Serial.print(hum[i], 2);
-      Serial.print("% (");
-      Serial.print(sensorDuration);
-      Serial.println("ms)");
-      
-    } else {
-      failedSensors++;
-      blinkError(1);
-      Serial.print("✗ Invalid data - Temp: ");
-      Serial.print(temp[i]);
-      Serial.print(", Hum: ");
-      Serial.print(hum[i]);
-      Serial.print(" (");
-      Serial.print(sensorDuration);
-      Serial.println("ms)");
-    }
+      } else {
+        failedSensors++;
+        totalI2CErrors++; // count failures
+        blinkError(1);
+        Serial.print(" Invalid or missing data - Temp: ");
+        Serial.print(temp[i]);
+        Serial.print(", Hum: ");
+        Serial.print(hum[i]);
+        Serial.print(" (");
+        Serial.print(sensorDuration);
+        Serial.println("ms)");
+      }
     
     // Delay between sensors (except after last sensor)
     if (i < NUM_I2C_SENSORS - 1) {
@@ -265,6 +287,10 @@ void loop()
         hum[i] >= 0 && hum[i] <= 100) {
       body += "temperature,device_id=" + SENSOR_IDS[i] + " value=" + String(temp[i], 2) + "\n";
       body += "humidity,device_id=" + SENSOR_IDS[i] + " value=" + String(hum[i], 2) + "\n";
+    }
+    else
+    {
+      sendTelegramMessage("Sensor ID " + SENSOR_IDS[i] + " failed to provide valid data check.");
     }
   }
   

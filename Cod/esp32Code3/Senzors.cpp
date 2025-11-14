@@ -86,6 +86,8 @@ SensorData readSensor(int sda, int scl)
   return result;
 }
 
+
+
 // Enhanced sensor reading with comprehensive error handling
 SensorData readSensorWithRecovery(int sda, int scl, int maxTries)
 {

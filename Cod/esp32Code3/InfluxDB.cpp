@@ -25,9 +25,13 @@ void writeToInfluxDB(const String &body)
   http.setTimeout(10000); // 10 second timeout
   http.setConnectTimeout(5000); // 5 second connection timeout
   
-  String url = INFLUX_HOST + "/api/v2/write?INFLUX_ORG=" + INFLUX_ORG + "&INFLUX_BUCKET=" + INFLUX_BUCKET + "&precision=s";
+  // FIXED: Correct URL parameter names (org= and bucket=, not INFLUX_ORG= and INFLUX_BUCKET=)
+  String url = INFLUX_HOST + "/api/v2/write?org=" + INFLUX_ORG + "&bucket=" + INFLUX_BUCKET + "&precision=s";
   
   Serial.println("Sending to InfluxDB:");
+  Serial.print("URL: ");
+  Serial.println(url);
+  Serial.print("Body: ");
   Serial.println(body);
   
   bool http_begin_success = http.begin(url);
@@ -38,7 +42,8 @@ void writeToInfluxDB(const String &body)
     return;
   }
   
-  http.addHeader("Authorization", "INFLUX_TOKEN " + INFLUX_TOKEN);
+  // FIXED: Correct authorization header format (Token, not INFLUX_TOKEN)
+  http.addHeader("Authorization", "Token " + INFLUX_TOKEN);
   http.addHeader("Content-Type", "text/plain");
   http.addHeader("Connection", "close");
   
@@ -46,6 +51,7 @@ void writeToInfluxDB(const String &body)
   esp_task_wdt_reset();
   
   int httpResponseCode = http.POST(body);
+  
   Serial.print("HTTP Response Code: ");
   Serial.println(httpResponseCode);
   
@@ -54,6 +60,7 @@ void writeToInfluxDB(const String &body)
     // Success
     influxConsecutiveErrors = 0;
     Serial.println("Data sent successfully to InfluxDB");
+    
   } else if (httpResponseCode == -1) {
     // Connection timeout or failure
     influxConsecutiveErrors++;
@@ -101,13 +108,16 @@ void writeToInfluxDB(const String &body)
   
   // Send debug information (only if main request didn't completely fail)
   if (httpResponseCode != -1 && httpResponseCode != -3) {
-    String debugBody = "debug,device_id=ESP32 influx_error_count=" + String(influxConsecutiveErrors) + 
+    String debugBody = "debug,device_id=ESP32 influx_error_count=" + String(influxConsecutiveErrors) +
                       ",wifi_rssi=" + String(WiFi.RSSI()) + ",http_response=" + String(httpResponseCode);
     
     HTTPClient debugHttp;
     debugHttp.setTimeout(5000);
-    if (debugHttp.begin(INFLUX_HOST + "/api/v2/write?INFLUX_ORG=" + INFLUX_ORG + "&INFLUX_BUCKET=" + INFLUX_BUCKET + "&precision=s")) {
-      debugHttp.addHeader("Authorization", "INFLUX_TOKEN " + INFLUX_TOKEN);
+    
+    String debugUrl = INFLUX_HOST + "/api/v2/write?org=" + INFLUX_ORG + "&bucket=" + INFLUX_BUCKET + "&precision=s";
+    
+    if (debugHttp.begin(debugUrl)) {
+      debugHttp.addHeader("Authorization", "Token " + INFLUX_TOKEN);
       debugHttp.addHeader("Content-Type", "text/plain");
       debugHttp.addHeader("Connection", "close");
       debugHttp.POST(debugBody);
@@ -115,4 +125,3 @@ void writeToInfluxDB(const String &body)
     }
   }
 }
-
