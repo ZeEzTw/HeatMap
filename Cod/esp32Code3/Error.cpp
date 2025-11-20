@@ -3,6 +3,11 @@
 
 bool resetMessageSent = false;
 int once = 0;
+// Global error tracking variables
+unsigned long totalI2CErrors = 0;
+unsigned long influxConsecutiveErrors = 0;
+unsigned long sensorConsecutiveFailures = 0;
+
 
 void blinkError(int code, int repeat) {
   pinMode(LED_PIN, OUTPUT);

@@ -2,7 +2,11 @@
 #include <esp_system.h>
 #include <WiFi.h>
 #include "Telegram.h"
-#pragma once  // previne includerea de mai multe ori
+
+// Global variables for error tracking and recovery
+extern unsigned long totalI2CErrors;
+extern unsigned long influxConsecutiveErrors;
+extern unsigned long sensorConsecutiveFailures;
 
 #define LED_PIN 2
 // Global variables for tracking
