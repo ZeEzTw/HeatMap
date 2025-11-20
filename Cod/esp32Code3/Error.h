@@ -1,5 +1,6 @@
 #include "ConfigData.h"
 #include <esp_system.h>
+#include <esp_task_wdt.h>
 #include <WiFi.h>
 #include "Telegram.h"
 
