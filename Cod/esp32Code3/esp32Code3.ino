@@ -1,6 +1,4 @@
 #include <time.h>
-#include "Error.h"
-//#include "Senzors.h"
 #include "Telegram.h"
 #include "InfluxDB.h"
 #include "BitBangAHT21ELI.h"
