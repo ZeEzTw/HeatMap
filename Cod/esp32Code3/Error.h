@@ -1,8 +1,6 @@
 #include "ConfigData.h"
 #include <esp_system.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
-#include "Senzors.h"
 #include "Telegram.h"
 #pragma once  // previne includerea de mai multe ori
 

@@ -35,9 +35,7 @@ void restartESP()
   sendTelegramMessage(restartMsg);
   
   // Cleanup before restart
-  I2C.end();
   WiFi.disconnect();
-  esp_task_wdt_delete(NULL);
   
   delay(2000);
   ESP.restart();
@@ -66,45 +64,14 @@ void logSystemStatus(unsigned long i2cErrorCount)
   Serial.println(influxConsecutiveErrors);
   Serial.print("Sensor Consecutive Failures: ");
   Serial.println(sensorConsecutiveFailures);
-  Serial.print("I2C Bus Status: ");
-  Serial.println(i2cBusLocked ? "LOCKED" : "OK");
   Serial.println("============================\n");
   
   // Send startup debug info only once
-  String debugBody;
   if (once == 0) {
-    debugBody = "debug,device_id=ESP32 reset_reason=" + String(esp_reset_reason()) + 
-               ",startup=1,free_heap=" + String(ESP.getFreeHeap());
-    sendTelegramMessage("ESP32 Started - Reset reason: " + String(esp_reset_reason()));
+    String startupMsg = "ESP32 Started - Reset reason: " + String(esp_reset_reason()) +
+                       ", Free heap: " + String(ESP.getFreeHeap()) + " bytes";
+    sendTelegramMessage(startupMsg);
     once++;
-  } else {
-    debugBody = "debug,device_id=ESP32";
-  }
-  
-  // Add comprehensive system metrics
-  debugBody += ",uptime=" + String(millis() / 1000) +
-              ",wifi_rssi=" + String(WiFi.RSSI()) + 
-              ",i2c_error_count=" + String(i2cErrorCount) +
-              ",influx_consecutive_errors=" + String(influxConsecutiveErrors) +
-              ",sensor_consecutive_failures=" + String(sensorConsecutiveFailures) +
-              ",free_heap=" + String(ESP.getFreeHeap()) +
-              ",wifi_connected=" + String(WiFi.status() == WL_CONNECTED ? 1 : 0) +
-              ",i2c_bus_locked=" + String(i2cBusLocked ? 1 : 0);
-  
-  // Send debug data to InfluxDB only if WiFi is connected
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient debugHttp;
-    debugHttp.setTimeout(5000);
-    if (debugHttp.begin(INFLUX_HOST + "/api/v2/write?INFLUX_ORG=" + INFLUX_ORG + "&INFLUX_BUCKET=" + INFLUX_BUCKET + "&precision=s")) {
-      debugHttp.addHeader("Authorization", "INFLUX_TOKEN " + INFLUX_TOKEN);
-      debugHttp.addHeader("Content-Type", "text/plain");
-      debugHttp.addHeader("Connection", "close");
-      int debugStatus = debugHttp.POST(debugBody);
-      debugHttp.end();
-      
-      Serial.print("Debug data sent to InfluxDB, status: ");
-      Serial.println(debugStatus);
-    }
   }
 }
 
