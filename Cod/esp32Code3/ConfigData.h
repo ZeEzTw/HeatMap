@@ -10,7 +10,7 @@ const String chatID = "5291138966";
 // All configuration data in one place for easy editing
 const int WDT_TIMEOUT = 120;  // seconds - increased timeout
 const int sensorDelayMs = 100; // increased for long wires and stability
-const int cycleDelayMs = 50; // increased cycle delay to prevent I2C conflicts
+const int cycleDelayMs = 1000; // increased cycle delay to prevent I2C conflicts
 const int MAX_I2C_RETRIES = 3;
 const int MAX_SENSOR_FAILURES = 5;
 const int I2C_RECOVERY_DELAY = 100;
