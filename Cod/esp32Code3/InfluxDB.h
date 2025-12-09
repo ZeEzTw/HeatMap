@@ -6,7 +6,7 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-// Enhanced InfluxDB writing with comprehensive error handling
-void writeToInfluxDB(const String &body);
-
+// InfluxDB v1.8.10 write function
+void writeToInfluxDBLocal(const String &body);
+void writeToInfluxDBOnline(const String &body);
 #endif // INFLUXDB_H

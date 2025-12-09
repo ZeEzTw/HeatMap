@@ -60,7 +60,7 @@ void setup()
   Serial.print("WiFi Password: ");
   Serial.println(WIFI_PASSWORD.length() > 0 ? "[SET]" : "[NOT SET]");
   Serial.print("InfluxDB Host: ");
-  Serial.println(INFLUX_HOST);
+  Serial.println(INFLUX_HOST_LOCAL);
   Serial.print("Number of I2C Sensors: ");
   Serial.println(NUM_I2C_SENSORS);
   
@@ -91,31 +91,6 @@ void setup()
     Serial.println("Restarting in 5 seconds...");
     delay(5000);
     ESP.restart();
-  }
-
-  // SNTP time synchronization with enhanced error handling
-  Serial.println("\n--- Time Synchronization ---");
-  configTime(0, 0, "pool.ntp.INFLUX_ORG", "time.nist.gov");
-  
-  Serial.print("Waiting for SNTP synchronization");
-  time_t now = time(nullptr);
-  int timeAttempts = 0;
-  while (now < 1000000 && timeAttempts < 30) { // Wait for valid timestamp
-    delay(1000);
-    now = time(nullptr);
-    Serial.print(".");
-    timeAttempts++;
-    esp_task_wdt_reset();
-  }
-  
-  if (now >= 1000000) {
-    Serial.println("\nTime synchronized successfully!");
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
-    Serial.print("Current time: ");
-    Serial.println(asctime(&timeinfo));
-  } else {
-    Serial.println("\nWARNING: Time synchronization failed, continuing anyway...");
   }
 
   // Initialize sensor configuration
@@ -157,11 +132,12 @@ void setup()
 
   Serial.println("\n=== SYSTEM INITIALIZATION COMPLETE ===");
   Serial.println("Starting main sensor monitoring loop...\n");
-  delay(1000);
+  delay(2500);
 }
 
 void loop()
 {
+  //delay(1500);
   static unsigned long lastLog = 0;
   static unsigned long loopCounter = 0;
   static unsigned long lastWiFiCheck = 0;
@@ -183,8 +159,8 @@ void loop()
   Serial.print("\n=== LOOP ");
   Serial.print(loopCounter);
   Serial.println(" START ===");
-  
-  float temp[5] = {NAN}, hum[5] = {NAN};
+
+  float temp[5] = {10,11,12,13,14}, hum[5] = {20,21,22,23,24};
   int validSensors = 0;
   int failedSensors = 0;
   
@@ -200,19 +176,19 @@ void loop()
     esp_task_wdt_reset();
     
     unsigned long sensorStartTime = millis();
-    
-      float tVal = NAN, hVal = NAN;
+    unsigned long sensorDuration = millis() - sensorStartTime;
+
+      //float tVal = NAN, hVal = NAN;
       bool readOk = false;
       if (i < NUM_I2C_SENSORS && bbSensors[i] != nullptr) {
-        readOk = bbSensors[i]->aht_get_data(&tVal, &hVal);
+        readOk = true;
       } else {
         Serial.println("Sensor instance not available");
       }
-      unsigned long sensorDuration = millis() - sensorStartTime;
 
-      temp[i] = tVal;
-      hum[i] = hVal;
-
+      //temp[i] = tVal;
+      //hum[i] = hVal;
+      
       // Validate sensor data
       if (readOk && !isnan(temp[i]) && !isnan(hum[i]) && 
           temp[i] > -80 && temp[i] < 130 &&
@@ -296,11 +272,11 @@ void loop()
   if (body.length() > 0 && body.endsWith("\n")) {
     body.remove(body.length() - 1);
   }
-  
   // Send data to InfluxDB
   if (body.length() > 0) {
     Serial.println("\nSending data to InfluxDB...");
-    writeToInfluxDB(body);
+    writeToInfluxDBLocal(body);
+    writeToInfluxDBOnline(body);
   } else {
     Serial.println("\nNo valid data to send to InfluxDB");
   }
@@ -328,7 +304,8 @@ void loop()
   Serial.print(millis() % 100000); // Show relative time
   Serial.println("ms) ===\n");
   
-  // Final delay before next cycle
   delay(cycleDelayMs);
   esp_task_wdt_reset();
+  // Final delay before next cycle
+
 }
