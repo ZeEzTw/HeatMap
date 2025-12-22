@@ -160,7 +160,8 @@ void loop()
   Serial.print(loopCounter);
   Serial.println(" START ===");
 
-  float temp[5] = {10,11,12,13,14}, hum[5] = {20,21,22,23,24};
+  float temp[5];
+  float hum[5];
   int validSensors = 0;
   int failedSensors = 0;
   
@@ -180,14 +181,22 @@ void loop()
 
       //float tVal = NAN, hVal = NAN;
       bool readOk = false;
+      float tVal = NAN, hVal = NAN;
       if (i < NUM_I2C_SENSORS && bbSensors[i] != nullptr) {
-        readOk = true;
+        // Attempt to read sensor data from the bit-banged AHT21 driver
+        if (bbSensors[i]->aht_get_data(&tVal, &hVal)) {
+          readOk = true;
+        } else {
+          readOk = false;
+          Serial.print("Read failed for sensor index ");
+          Serial.println(i);
+        }
       } else {
         Serial.println("Sensor instance not available");
       }
 
-      //temp[i] = tVal;
-      //hum[i] = hVal;
+      temp[i] = tVal;
+      hum[i] = hVal;
       
       // Validate sensor data
       if (readOk && !isnan(temp[i]) && !isnan(hum[i]) && 
