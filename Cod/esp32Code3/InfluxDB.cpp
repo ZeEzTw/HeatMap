@@ -63,17 +63,17 @@ void writeToInfluxDBLocal(const String &body)
   if (httpResponseCode == 204) {
     // Success
     influxConsecutiveErrors = 0;
-    Serial.println("✓ Data sent successfully to InfluxDB");
+    Serial.println("Data sent successfully to InfluxDB");
     
   } else if (httpResponseCode == 200) {
     // Also success in some cases
     influxConsecutiveErrors = 0;
-    Serial.println("✓ Data sent successfully to InfluxDB (200)");
+    Serial.println("Data sent successfully to InfluxDB (200)");
     
   } else if (httpResponseCode == -1) {
     // Connection timeout or failure
     influxConsecutiveErrors++;
-    Serial.println("✗ HTTP connection failed (error -1)");
+    Serial.println("HTTP connection failed (error -1)");
     String error = http.errorToString(httpResponseCode);
     Serial.print("Error details: ");
     Serial.println(error);
@@ -81,12 +81,12 @@ void writeToInfluxDBLocal(const String &body)
   } else if (httpResponseCode == -3) {
     // Connection lost
     influxConsecutiveErrors++;
-    Serial.println("✗ HTTP connection lost (error -3)");
+    Serial.println("HTTP connection lost (error -3)");
     
   } else {
     // Other HTTP errors (400, 401, 404, 500, etc.)
     influxConsecutiveErrors++;
-    Serial.print("✗ HTTP error: ");
+    Serial.print("HTTP error: ");
     Serial.println(httpResponseCode);
     
     // Try to get response body for debugging
@@ -104,11 +104,11 @@ void writeToInfluxDBLocal(const String &body)
   Serial.println(influxConsecutiveErrors);
   
   if (influxConsecutiveErrors >= 5) {
-    Serial.println("⚠ Too many InfluxDB errors, attempting WiFi reconnection...");
+    Serial.println("Warning: Too many InfluxDB errors, attempting WiFi reconnection...");
     reconnectWiFi();
     
     if (influxConsecutiveErrors >= 8) {
-      Serial.println("✗ Critical InfluxDB failure, restarting ESP...");
+      Serial.println("Critical InfluxDB failure, restarting ESP...");
       restartESP();
     }
   }

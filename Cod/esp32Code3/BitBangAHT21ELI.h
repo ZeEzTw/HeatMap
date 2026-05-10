@@ -9,6 +9,7 @@ class BitBangAHT21ELI {
         int _sdaPin;
         int _sclPin;
         void i2c_init();
+        void i2c_bus_clear();
         void sda_low();
         void sda_high();
         void scl_low();

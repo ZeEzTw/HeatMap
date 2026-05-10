@@ -517,7 +517,7 @@
       "plot": "../../../../HeatMap/Gerbers/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "../../../PCH_ESP32.glb",
+      "step": "../../../../PCH_ESP32.stl",
       "svg": "",
       "vrml": ""
     },

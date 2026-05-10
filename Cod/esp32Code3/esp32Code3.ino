@@ -4,6 +4,10 @@
 #include "BitBangAHT21ELI.h"
 using namespace std;
 
+// Telegram rate-limiting intervals
+const unsigned long TELEGRAM_INVALID_SENSOR_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
+const unsigned long TELEGRAM_HEALTH_INTERVAL_MS = 10UL * 60UL * 1000UL; // 10 minutes
+
 // Scalable array of bit-banged sensor instances. Size follows NUM_I2C_SENSORS.
 BitBangAHT21ELI* bbSensors[NUM_I2C_SENSORS] = { nullptr };
 
@@ -113,13 +117,13 @@ void setup()
     Serial.print(" SCL=");
     Serial.println(SCL_PINS[i]);
     bbSensors[i] = new BitBangAHT21ELI(SDA_PINS[i], SCL_PINS[i]);
-    delay(50);
+    delay(200); // Increased delay between sensor initializations
   }
 
   // Send startup notification to Telegram
   if (!resetMessageSent && WiFi.status() == WL_CONNECTED) {
     Serial.println("\n--- Startup Notification ---");
-    String startupMessage = "🚀 ESP32 Sensor System Started!\n";
+    String startupMessage = "ESP32 Sensor System Started!\n";
     startupMessage += "Reset reason: " + String(esp_reset_reason()) + "\n";
     startupMessage += "Sensors: " + String(NUM_I2C_SENSORS) + "\n";
     startupMessage += "Free memory: " + String(ESP.getFreeHeap()) + " bytes\n";
@@ -134,6 +138,9 @@ void setup()
   Serial.println("Starting main sensor monitoring loop...\n");
   delay(2500);
 }
+
+
+
 
 void loop()
 {
@@ -164,6 +171,7 @@ void loop()
   float hum[5];
   int validSensors = 0;
   int failedSensors = 0;
+  String invalidSensorBuffer = ""; // collect invalid sensor info for batching
   
   // Read all configured sensors
   for (int i = 0; i < NUM_I2C_SENSORS; i++) {
@@ -265,15 +273,14 @@ void loop()
   // Build InfluxDB payload only for valid readings
   String body = "";
   for (int i = 0; i < NUM_I2C_SENSORS; i++) {
-    if (!isnan(temp[i]) && !isnan(hum[i]) && 
-        temp[i] > -80 && temp[i] < 130 &&
-        hum[i] >= 0 && hum[i] <= 100) {
+  if (!isnan(temp[i]) && !isnan(hum[i]) && 
+    temp[i] > -80 && temp[i] < 130 &&
+    hum[i] >= 0 && hum[i] <= 100) {
       body += "temperature,device_id=" + SENSOR_IDS[i] + " value=" + String(temp[i], 2) + "\n";
       body += "humidity,device_id=" + SENSOR_IDS[i] + " value=" + String(hum[i], 2) + "\n";
-    }
-    else
-    {
-      sendTelegramMessage("Sensor ID " + SENSOR_IDS[i] + " failed to provide valid data check.");
+    } else {
+      // Accumulate invalid sensor info; we'll send a single Telegram message periodically
+      invalidSensorBuffer += "Sensor " + SENSOR_IDS[i] + " invalid; ";
     }
   }
   
@@ -298,13 +305,23 @@ void loop()
     logSystemStatus(totalI2CErrors);
     lastLog = millis();
     
-    // Send periodic health report
-    if (loopCounter % 50 == 0) { // Every ~50 loops (approximately every 7-8 minutes)
+    // Send periodic health report (rate-limited)
+    static unsigned long lastHealthTelegram = 0;
+    if (millis() - lastHealthTelegram > TELEGRAM_HEALTH_INTERVAL_MS) {
       String healthMsg = "ESP32 Health - Loop:" + String(loopCounter) + 
                         " I2C_errors:" + String(totalI2CErrors) + 
                         " Valid_sensors:" + String(validSensors) + "/" + String(NUM_I2C_SENSORS);
       sendTelegramMessage(healthMsg);
+      lastHealthTelegram = millis();
     }
+  }
+
+  // Send aggregated invalid sensor messages at most once per interval
+  static unsigned long lastInvalidSensorTelegram = 0;
+  if (invalidSensorBuffer.length() > 0 && (millis() - lastInvalidSensorTelegram > TELEGRAM_INVALID_SENSOR_INTERVAL_MS)) {
+    String msg = "Sensor issues detected: " + invalidSensorBuffer;
+    sendTelegramMessage(msg);
+    lastInvalidSensorTelegram = millis();
   }
   
   Serial.print("=== LOOP ");

@@ -7,7 +7,7 @@
 #define AHTX0_CMD_TRIGGER 0xAC
 #define AHTX0_STATUS_BUSY 0x80
 #define AHTX0_STATUS_CALIBRATED 0x08
-#define I2C_DELAY 5
+#define I2C_DELAY 30
 
 BitBangAHT21ELI::BitBangAHT21ELI(int sdaPin, int sclPin) {
     _sdaPin = sdaPin;
@@ -19,10 +19,63 @@ BitBangAHT21ELI::BitBangAHT21ELI(int sdaPin, int sclPin) {
 
 // ----- Bit-banged I2C functions -----
 void BitBangAHT21ELI::i2c_init() {
+    // Initial pin setup
     pinMode(_sdaPin, INPUT_PULLUP);
     pinMode(_sclPin, INPUT_PULLUP);
     digitalWrite(_sdaPin, HIGH);
     digitalWrite(_sclPin, HIGH);
+    delay(10); // Small stability delay
+    i2c_bus_clear();
+
+    // Quick probe: try address write to see if device ACKs
+    i2c_start();
+    bool ack = i2c_write_byte(AHTX0_I2CADDR_DEFAULT << 1);
+    i2c_stop();
+
+    if (!ack) {
+        Serial.println("No ACK on I2C probe. Trying to swap SDA/SCL in case of wiring mismatch...");
+
+        // Swap pins (assume a wiring mistake)
+        int prevSda = _sdaPin;
+        int prevScl = _sclPin;
+        _sdaPin = prevScl;
+        _sclPin = prevSda;
+
+        // Re-init swapped pins
+        pinMode(_sdaPin, INPUT_PULLUP);
+        pinMode(_sclPin, INPUT_PULLUP);
+        digitalWrite(_sdaPin, HIGH);
+        digitalWrite(_sclPin, HIGH);
+        delay(10);
+        i2c_bus_clear();
+
+        // Probe again with swapped pins
+        i2c_start();
+        bool ack2 = i2c_write_byte(AHTX0_I2CADDR_DEFAULT << 1);
+        i2c_stop();
+
+        if (ack2) {
+            Serial.print("Device responded after swapping. Now using SDA=");
+            Serial.print(_sdaPin);
+            Serial.print(", SCL=");
+            Serial.println(_sclPin);
+        } else {
+            Serial.println("Still no ACK after swapping SDA/SCL. Check wiring and pull-ups.");
+        }
+    } 
+}
+
+void BitBangAHT21ELI::i2c_bus_clear() {
+    // Clock out up to 9 bits to release SDA if a device is stuck mid-transmission
+    pinMode(_sdaPin, INPUT_PULLUP);
+    for (int i = 0; i < 9; i++) {
+        scl_high();
+        delayMicroseconds(I2C_DELAY);
+        if (digitalRead(_sdaPin) == HIGH) break;
+        scl_low();
+        delayMicroseconds(I2C_DELAY);
+    }
+    i2c_stop();
 }
 
 void BitBangAHT21ELI::sda_low() {
@@ -44,7 +97,11 @@ void BitBangAHT21ELI::scl_high() {
     // Wait for clock stretching
     unsigned long start = micros();
     while (digitalRead(_sclPin) == LOW) {
-        if (micros() - start > 1000) break; 
+        if (micros() - start > 2000) { // Increased timeout for long cables
+            Serial.print("[I2C Error] SCL Stuck LOW on Pin ");
+            Serial.println(_sclPin);
+            break; 
+        }
     }
 }
 
@@ -89,6 +146,11 @@ bool BitBangAHT21ELI::i2c_write_byte(uint8_t byte) {
     bool ack = (digitalRead(_sdaPin) == LOW);
     scl_low();
     delayMicroseconds(I2C_DELAY);
+    
+    if (!ack) {
+        // Only log error if not in scanner mode (address write check)
+        // We'll handle logging in the higher level aht_write/read functions
+    }
     
     return ack;
 }
@@ -216,7 +278,7 @@ bool BitBangAHT21ELI::aht_init() {
     checkIfSensorIsConnected();
     
     Serial.println("\nInitializing AHT21...");
-    delay(40); // Power-up time
+    delay(150); // Increased Power-up time
 
     // Soft reset
     uint8_t cmd = AHTX0_CMD_SOFTRESET;
@@ -225,7 +287,7 @@ bool BitBangAHT21ELI::aht_init() {
         Serial.println("Failed to send soft reset");
         return false;
     }
-    delay(20);
+    delay(50); // Increased reset delay
 
     // Check status
     Serial.println("Reading status...");
