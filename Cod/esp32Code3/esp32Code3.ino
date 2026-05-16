@@ -2,6 +2,7 @@
 #include "Telegram.h"
 #include "InfluxDB.h"
 #include "BitBangAHT21ELI.h"
+#include "Error.h"
 using namespace std;
 
 // Telegram rate-limiting intervals
@@ -123,8 +124,9 @@ void setup()
   // Send startup notification to Telegram
   if (!resetMessageSent && WiFi.status() == WL_CONNECTED) {
     Serial.println("\n--- Startup Notification ---");
-    String startupMessage = "ESP32 Sensor System Started!\n";
-    startupMessage += "Reset reason: " + String(esp_reset_reason()) + "\n";
+  esp_reset_reason_t rr = esp_reset_reason();
+  String startupMessage = "ESP32 Sensor System Started!\n";
+  startupMessage += "Reset code: " + String((int)rr) + " (" + resetReasonToString(rr) + ")\n";
     startupMessage += "Sensors: " + String(NUM_I2C_SENSORS) + "\n";
     startupMessage += "Free memory: " + String(ESP.getFreeHeap()) + " bytes\n";
     startupMessage += "WiFi RSSI: " + String(WiFi.RSSI()) + " dBm";
@@ -292,7 +294,7 @@ void loop()
   if (body.length() > 0) {
     Serial.println("\nSending data to InfluxDB...");
     writeToInfluxDBLocal(body);
-    writeToInfluxDBOnline(body);
+    //writeToInfluxDBOnline(body);
   } else {
     Serial.println("\nNo valid data to send to InfluxDB");
   }

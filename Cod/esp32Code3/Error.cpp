@@ -33,10 +33,18 @@ void restartESP()
   Serial.print("Sensor consecutive failures: ");
   Serial.println(sensorConsecutiveFailures);
   
+  // Log reset reason description
+  esp_reset_reason_t rr = esp_reset_reason();
+  Serial.print("Reset reason (code): ");
+  Serial.print((int)rr);
+  Serial.print(" - ");
+  Serial.println(resetReasonToString(rr));
+  
   // Send restart notification
   String restartMsg = "ESP32 RESTART - I2C_errors:" + String(totalI2CErrors) + 
                      " Influx_errors:" + String(influxConsecutiveErrors) + 
-                     " Sensor_failures:" + String(sensorConsecutiveFailures);
+                     " Sensor_failures:" + String(sensorConsecutiveFailures) +
+                     " Reset_code:" + String((int)rr) + "(" + resetReasonToString(rr) + ")";
   sendTelegramMessage(restartMsg);
   
   // Cleanup before restart
@@ -62,7 +70,10 @@ void logSystemStatus(unsigned long i2cErrorCount)
   Serial.print("WiFi Status: ");
   Serial.println(WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
   Serial.print("Reset Reason: ");
-  Serial.println(esp_reset_reason());
+  esp_reset_reason_t rr = esp_reset_reason();
+  Serial.print((int)rr);
+  Serial.print(" - ");
+  Serial.println(resetReasonToString(rr));
   Serial.print("Total I2C Errors: ");
   Serial.println(i2cErrorCount);
   Serial.print("InfluxDB Consecutive Errors: ");
@@ -73,10 +84,35 @@ void logSystemStatus(unsigned long i2cErrorCount)
   
   // Send startup debug info only once
   if (once == 0) {
-    String startupMsg = "ESP32 Started - Reset reason: " + String(esp_reset_reason()) +
+    esp_reset_reason_t rr = esp_reset_reason();
+    String startupMsg = "ESP32 Started - Reset_code:" + String((int)rr) + "(" + resetReasonToString(rr) + ")" +
                        ", Free heap: " + String(ESP.getFreeHeap()) + " bytes";
     sendTelegramMessage(startupMsg);
     once++;
+  }
+}
+
+
+// Convert esp_reset_reason value to a human-readable description
+String resetReasonToString(esp_reset_reason_t reason)
+{
+  int r = (int)reason;
+  switch (r) {
+    case 0: return "UNKNOWN - Reset reason could not be determined";              // ESP_RST_UNKNOWN
+    case 1: return "POWERON_RESET - Device powered on or power reapplied";        // ESP_RST_POWERON
+    case 2: return "EXTERNAL_RESET - External reset (reset pin pressed or external circuit reset; can also happen with power cycling/unplugging)";       // ESP_RST_EXT
+    case 3: return "SOFTWARE_RESET - Software-called reset (esp_restart) or software-triggered reboot";       // ESP_RST_SW
+    case 4: return "PANIC/Abort - CPU panic or abort, typically an unhandled exception or abort()";          // ESP_RST_PANIC
+    case 5: return "INT WDT Reset - Internal watchdog reset (main CPU watchdog timeout)";        // ESP_RST_INT_WDT
+    case 6: return "Task WDT Reset - Task watchdog triggered because a task blocked for too long";       // ESP_RST_TASK_WDT
+    case 7: return "Other WDT Reset - Other watchdog (RTC or system) triggered a reset";      // ESP_RST_WDT
+    case 8: return "DEEPSLEEP_RESET - Woke from deep sleep (normal deep-sleep wakeup)";     // ESP_RST_DEEPSLEEP
+    case 9: return "BROWNOUT_RESET - Brownout detector triggered (supply voltage dipped below threshold)";       // ESP_RST_BROWNOUT
+    case 10: return "SDIO_RESET - Reset caused by SDIO (host) interface or related event";          // ESP_RST_SDIO
+    default: {
+      String s = "Unknown(" + String(r) + ")";
+      return s;
+    }
   }
 }
 
